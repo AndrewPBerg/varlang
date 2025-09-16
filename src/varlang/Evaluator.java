@@ -15,7 +15,6 @@ import varlang.AST.VarExp;
 import varlang.AST.Visitor;
 import varlang.Env.EmptyEnv;
 import varlang.Env.ExtendEnv;
-import varlang.Env.LookupException;
 
 public class Evaluator implements Visitor<Value> {
 	
@@ -87,45 +86,24 @@ public class Evaluator implements Visitor<Value> {
 		return env.get(e.name());
 	}	
 
-	@SuppressWarnings("serial")
-	static public class UniqueNameException extends RuntimeException {
-		UniqueNameException(String message){
-			super(message);
-		}
-	}
 	@Override
 	public Value visit(LetExp e, Env env) { // New for varlang.
 		List<String> names = e.names();
 		List<Exp> value_exps = e.value_exps();
 		List<Value> values = new ArrayList<Value>(value_exps.size());
 		
-		for(Exp exp : value_exps) 
-			values.add((Value)exp.accept(this, env));
+		// Previous code, recursive call to get the value of the expression.
+		// see Cascading Definitions below
+		// for(Exp exp : value_exps) 
+		// 	values.add((Value)exp.accept(this, env));
 		
+		// Cascading Definitions
 		Env new_env = env;
 		for (int i = 0; i < names.size(); i++){
-			// test case (let ((a 3) (a 4) (a 2) (a 342)) a) should throw an error
-			// run t4.vl
-			
-			// need to check if new_env has the names.get(i) var
-			// also need to handle the case where the var is not in the env
-			try{
-				if (new_env.get(names.get(i)) != null) {
-					// System.out.println("Variable " + names.get(i) + " already exists");
-					throw new UniqueNameException("Variable " + names.get(i) + " already exists");
-				}
-			}
-			catch (LookupException exception) {
-				new_env = new ExtendEnv(new_env, names.get(i), values.get(i));
-				// System.out.println("LookupException caught, for var: " + names.get(i));
-			}
-			catch (UniqueNameException exception) { // catch the unique name exception
-				System.out.println(exception.getMessage());
-			}
+			// use recursive call to get the value of the expression. Pretty cool. copied the design from the addexp
+			Value value = (Value) value_exps.get(i).accept(this, new_env);
+			new_env = new ExtendEnv(new_env, names.get(i), value);}
 
-		}
-
-		
 		return (Value) e.body().accept(this, new_env);		
 	}	
 	
